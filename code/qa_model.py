@@ -14,8 +14,8 @@
 
 """This file defines the top-level model"""
 
-from __future__ import absolute_import
-from __future__ import division
+
+
 
 import time
 import logging
@@ -49,7 +49,7 @@ class QAModel(object):
           word2id: dictionary mapping word (string) to word idx (int)
           emb_matrix: numpy array shape (400002, embedding_size) containing pre-traing GloVe embeddings
         """
-        print "Initializing the QAModel..."
+        print("Initializing the QAModel...")
         self.FLAGS = FLAGS
         self.id2word = id2word
         self.word2id = word2id
@@ -74,7 +74,7 @@ class QAModel(object):
         # (updates is what you need to fetch in session.run to do a gradient update)
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
         opt = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate) # you can try other optimizers
-        self.updates = opt.apply_gradients(zip(clipped_gradients, params), global_step=self.global_step)
+        self.updates = opt.apply_gradients(list(zip(clipped_gradients, params)), global_step=self.global_step)
 
         # Define savers (for checkpointing) and summaries (for tensorboard)
         self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=FLAGS.keep)
@@ -157,8 +157,8 @@ class QAModel(object):
             # Note: the embedding matrix is a tf.constant which means it's not a trainable parameter
             char_emb_matrix = tf.Variable(tf.random_uniform((self.char_vocab, self.FLAGS.char_embedding_size), -1, 1)) #is trainable
 
-            print("Shape context placeholder", self.char_ids_context.shape)
-            print("Shape qn placeholder", self.char_ids_qn.shape)
+            print(("Shape context placeholder", self.char_ids_context.shape))
+            print(("Shape qn placeholder", self.char_ids_qn.shape))
 
             self.context_char_embs = embedding_ops.embedding_lookup(char_emb_matrix, tf.reshape(self.char_ids_context, shape=(-1, self.FLAGS.word_max_len))) # shape (-1, word_max_len, char_embedding_size)
 
@@ -166,14 +166,14 @@ class QAModel(object):
             self.context_char_embs = tf.reshape(self.context_char_embs, shape=(
            -1, self.FLAGS.word_max_len, self.FLAGS.char_embedding_size))  # shape = batch_size*context_len, word_max_len, char_embedding_size
 
-            print("Shape context embs before conv", self.context_char_embs.shape)
+            print(("Shape context embs before conv", self.context_char_embs.shape))
 
             ## Repeat for question embeddings - again reshape to 3D tensor
             self.qn_char_embs = embedding_ops.embedding_lookup(char_emb_matrix, tf.reshape(self.char_ids_qn, shape=(-1, self.FLAGS.word_max_len)))
             self.qn_char_embs = tf.reshape(self.qn_char_embs, shape=(-1, self.FLAGS.word_max_len, self.FLAGS.char_embedding_size))
 
 
-            print("Shape qn embs before conv", self.qn_char_embs.shape)
+            print(("Shape qn embs before conv", self.qn_char_embs.shape))
 
             ## Now implement convolution. I decided to use conv2d through the function conv1d above since that was more intuitive
 
@@ -181,20 +181,20 @@ class QAModel(object):
 
             self.context_emb_out = tf.nn.dropout(self.context_emb_out, self.keep_prob)
 
-            print("Shape context embs after conv", self.context_emb_out.shape)
+            print(("Shape context embs after conv", self.context_emb_out.shape))
 
             self.context_emb_out = tf.reduce_sum(self.context_emb_out, axis = 1)
 
             self.context_emb_out =  tf.reshape(self.context_emb_out, shape=(-1, self.FLAGS.context_len, self.FLAGS.char_out_size))# Desired shape is Batch_size, context_len, char_out_size
 
-            print("Shape context embs after pooling", self.context_emb_out.shape)
+            print(("Shape context embs after pooling", self.context_emb_out.shape))
 
             self.qn_emb_out = conv1d(input_=self.qn_char_embs, output_size=self.FLAGS.char_out_size,
                                           width=self.FLAGS.window_width, stride=1, scope_name='char-cnn') #reuse weights b/w context and ques conv layers
 
             self.qn_emb_out = tf.nn.dropout(self.qn_emb_out, self.keep_prob)
 
-            print("Shape qn embs after conv", self.qn_emb_out.shape)
+            print(("Shape qn embs after conv", self.qn_emb_out.shape))
 
             self.qn_emb_out = tf.reduce_sum(self.qn_emb_out,
                                                  axis=1)
@@ -202,7 +202,7 @@ class QAModel(object):
             self.qn_emb_out = tf.reshape(self.qn_emb_out, shape=(-1, self.FLAGS.question_len,
                                                                            self.FLAGS.char_out_size))  # Desired shape is Batch_size, question_len, char_out_size
 
-            print("Shape qn embs after pooling", self.qn_emb_out.shape)
+            print(("Shape qn embs after pooling", self.qn_emb_out.shape))
 
             return self.context_emb_out, self.qn_emb_out
 
@@ -227,10 +227,10 @@ class QAModel(object):
 
             self.context_emb_out, self.qn_emb_out = self.add_char_embeddings()
             self.context_embs = tf.concat((self.context_embs, self.context_emb_out), axis = 2)
-            print("Shape - concatenated context embs", self.context_embs.shape)
+            print(("Shape - concatenated context embs", self.context_embs.shape))
 
             self.qn_embs = tf.concat((self.qn_embs, self.qn_emb_out), axis=2)
-            print("Shape - concatenated qn embs", self.qn_embs.shape)
+            print(("Shape - concatenated qn embs", self.qn_embs.shape))
 
         ###################################################### HIGHWAY LAYER   #######################################
         if self.FLAGS.add_highway_layer:
@@ -251,11 +251,11 @@ class QAModel(object):
             ## Use CNN to also generate encodings
             cnn_encoder = CNNEncoder(self.FLAGS.filter_size_encoder, self.keep_prob)
             context_cnn_hiddens = cnn_encoder.build_graph(self.context_embs, self.FLAGS.context_len, scope_name='context-encoder')  # (batch_size, context_len, hidden_size*2)
-            print("Shape - Context Encoder output", context_cnn_hiddens.shape)
+            print(("Shape - Context Encoder output", context_cnn_hiddens.shape))
 
             ques_cnn_hiddens = cnn_encoder.build_graph(self.qn_embs, self.FLAGS.question_len,
                                                        scope_name='ques-encoder')  # (batch_size, context_len, hidden_size*2)
-            print("Shape - Ques Encoder output", ques_cnn_hiddens.shape)
+            print(("Shape - Ques Encoder output", ques_cnn_hiddens.shape))
 
             ## concat these vectors
 
@@ -263,7 +263,7 @@ class QAModel(object):
             question_hiddens = ques_cnn_hiddens
             # context_hiddens = tf.concat((context_hiddens, context_cnn_hiddens), axis = 2)  # Just use these output for now. Ignore the RNN output
             # question_hiddens = tf.concat((question_hiddens, ques_cnn_hiddens), axis = 2)   # Just use these output for now
-            print("Shape - Context Hiddens", context_hiddens.shape)
+            print(("Shape - Context Hiddens", context_hiddens.shape))
 
         ###################################################### RNET QUESTION CONTEXT ATTENTION and SELF ATTENTION  #######################################
         if self.FLAGS.rnet_attention:  ##perform Question Passage and Self Matching attention from R-Net
@@ -295,7 +295,7 @@ class QAModel(object):
 
             self.bidaf_attention = attn_output
             self.bidaf_attention = tf.reduce_max(self.bidaf_attention, axis=2)  # shape (batch_size, seq_len)
-            print("Shape bidaf before softmax", self.bidaf_attention.shape)
+            print(("Shape bidaf before softmax", self.bidaf_attention.shape))
 
             # Take softmax over sequence
             _, self.bidaf_attention_probs = masked_softmax(self.bidaf_attention, self.context_mask, 1)  ## for plotting purpose
@@ -316,7 +316,7 @@ class QAModel(object):
             # Use context hidden states to attend to question hidden states - Basic Attention
 
             last_dim = context_hiddens.get_shape().as_list()[-1]
-            print("last dim", last_dim)
+            print(("last dim", last_dim))
 
             attn_layer = BasicAttn(self.keep_prob, last_dim,
                                    last_dim)
@@ -614,7 +614,7 @@ class QAModel(object):
         idx2char[CHAR_UNK_ID] = _CHAR_UNK
 
         ##Create reverse char2idx
-        char2idx = {v: k for k, v in idx2char.iteritems()}
+        char2idx = {v: k for k, v in idx2char.items()}
         return char2idx, idx2char, num_chars
 
     def word_to_token_ids(self, word):
@@ -678,7 +678,7 @@ class QAModel(object):
         T = tf.sigmoid(self.matrix_multiplication(x, W_T) + b_T, name="transform_gate")
         H = tf.nn.relu(self.matrix_multiplication(x, W) + b, name="activation")
 
-        print("shape H, T: ", H.shape, T.shape)
+        print(("shape H, T: ", H.shape, T.shape))
         C = tf.subtract(1.0, T, name="carry_gate")
 
         y = tf.add(tf.multiply(H, T), tf.multiply(x, C), "y")
@@ -716,7 +716,7 @@ class QAModel(object):
         # Calculate average loss
         total_num_examples = sum(batch_lengths)
         toc = time.time()
-        print "Computed dev loss over %i examples in %.2f seconds" % (total_num_examples, toc-tic)
+        print("Computed dev loss over %i examples in %.2f seconds" % (total_num_examples, toc-tic))
 
         # Overall loss is total loss divided by total number of examples
         dev_loss = sum(loss_per_batch) / float(total_num_examples)
@@ -817,7 +817,7 @@ class QAModel(object):
         # Print number of model parameters
         tic = time.time()
         params = tf.trainable_variables()
-        num_params = sum(map(lambda t: np.prod(tf.shape(t.value()).eval()), params))
+        num_params = sum([np.prod(tf.shape(t.value()).eval()) for t in params])
         toc = time.time()
         logging.info("Number of params: %d (retrieval took %f secs)" % (num_params, toc - tic))
 

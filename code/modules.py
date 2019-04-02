@@ -134,12 +134,12 @@ class CNNEncoder(object):
         conv_outputs = []
         input_shape = inputs.get_shape().as_list()  # shape - batch_size, context/ques_len, embedding_dim
         inputs_expanded = tf.expand_dims(inputs, 1)  # becomes - batch_size, 1, context/ques_len, embedding_dim
-        print("Shape before convolution ", inputs_expanded.shape)
+        print(("Shape before convolution ", inputs_expanded.shape))
 
         # with vs.variable_scope(scope=scope_name):
         conv_outputs = []
         for i, filter_size in enumerate(self.kernel_sizes):
-            print("filter size is: ", filter_size)
+            print(("filter size is: ", filter_size))
             with tf.name_scope("conv-encoder-%s" % filter_size):
                 # Convolution Layer
 
@@ -157,7 +157,7 @@ class CNNEncoder(object):
                     # Apply nonlinearity
                     conv = tf.nn.tanh(tf.nn.bias_add(conv, b), name="tanh")
                     drop  = tf.nn.dropout(conv, self.keep_prob)
-                    print("Shape after convolution ", drop.shape)
+                    print(("Shape after convolution ", drop.shape))
                      #pass the results of convolution again back in for the next kernel size
                     # No max poooling is done to preserve input size
                     conv_outputs.append(drop)
@@ -175,18 +175,18 @@ class CNNEncoder(object):
                     # Apply nonlinearity
                     conv = tf.nn.tanh(tf.nn.bias_add(conv, b), name="tanh")
                     drop = tf.nn.dropout(conv, self.keep_prob)
-                    print("Shape after convolution ", drop.shape)
+                    print(("Shape after convolution ", drop.shape))
                     # pass the results of convolution again back in for the next kernel size
                     # No max poooling is done to preserve input size
                     conv_outputs.append(drop)
 
         # Combine all the pooled features
-        print("conv outputs", conv_outputs)
+        print(("conv outputs", conv_outputs))
         num_filters_total = self.num_filters * len(self.kernel_sizes)  #
         h_concat = tf.concat(conv_outputs, 3)  # across the filter dimension
         result = tf.squeeze(h_concat, axis=1)  # remove the extra dimension
 
-        print("Result shape", result.shape)
+        print(("Result shape", result.shape))
         result = tf.reshape(result, [-1, vec_len, num_filters_total])  # batch size, question or cont
 
             # h_drop = tf.nn.dropout(h_reshaped, self.keep_prob)
@@ -373,9 +373,9 @@ class BasicAttn(object):
             # Calculate attention distribution
             values_t = tf.transpose(values, perm=[0, 2, 1]) # (batch_size, value_vec_size, num_values)
             attn_logits = tf.matmul(keys, values_t) # shape (batch_size, num_keys, num_values)
-            print("Basic attn keys", keys.shape)
-            print("Basic attn values", values_t.shape)
-            print("Basic attn logits", attn_logits.shape)
+            print(("Basic attn keys", keys.shape))
+            print(("Basic attn values", values_t.shape))
+            print(("Basic attn logits", attn_logits.shape))
             attn_logits_mask = tf.expand_dims(values_mask, 1) # shape (batch_size, 1, num_values)
             _, attn_dist = masked_softmax(attn_logits, attn_logits_mask, 2) # shape (batch_size, num_keys, num_values). take softmax over values
 
@@ -463,7 +463,7 @@ I       Implement question passage matching from R-Net
             u_P = context_encoding   # [batch_size, context_length, 2*hidden_size_encoder]
 
             W_uQ_uQ = self.matrix_multiplication(u_Q,self.W_uQ) # [batch_size, q_len, hidden_size_qp]
-            print("Shape W_uQ_cal", W_uQ_uQ.shape)
+            print(("Shape W_uQ_cal", W_uQ_uQ.shape))
 
 
             cur_batch_size = tf.shape(context_encoding)[0]
@@ -471,10 +471,10 @@ I       Implement question passage matching from R-Net
 
             # u_Pi_slice = tf.reshape(u_P[:, i, :], [cur_batch_size, 1, 2 * self.hidden_size_encoder])
 
-            print("Shape Concat", concat_u_Pi)
+            print(("Shape Concat", concat_u_Pi))
             W_uP_uPi = self.matrix_multiplication(concat_u_Pi, self.W_uP) # [batch_size, 1, hidden_size_qp]
 
-            print("Shape W_uP_cal", W_uP_uPi.shape)  # [batch_size, 1, hidden_size_qp]
+            print(("Shape W_uP_cal", W_uP_uPi.shape))  # [batch_size, 1, hidden_size_qp]
 
             if i== 0:
                 tanh_qp = tf.tanh(W_uQ_uQ+W_uP_uPi) # [batch_size, q_length, hidden_size_qp]
@@ -484,42 +484,42 @@ I       Implement question passage matching from R-Net
                 # v_Pi_slice = tf.reshape(v_P[i - 1], [cur_batch_size, 1, self.hidden_size_qp])
 
                 W_vP_vPi = self.matrix_multiplication(concat_v_Pi, self.W_vP)
-                print("Shape W_vP_cal", W_vP_vPi.shape)  # [batch_size, 1, hidden_size_qp]
+                print(("Shape W_vP_cal", W_vP_vPi.shape))  # [batch_size, 1, hidden_size_qp]
                 tanh_qp = tf.tanh(W_uQ_uQ + W_uP_uPi+ W_vP_vPi)
 
-            print("Shape tanh", tanh_qp.shape)
+            print(("Shape tanh", tanh_qp.shape))
             # Calculate si = vT*tanh
             s_i_qp = self.matrix_multiplication(tanh_qp, tf.reshape(self.v_t, [-1,1]))  # [batch_size, q_length, 1]
-            print("Shape s_i", s_i_qp.shape)
+            print(("Shape s_i", s_i_qp.shape))
 
             s_i_qp = tf.squeeze(s_i_qp, axis=2) # [batch_size, q_length]. Same shape as values Mask
 
             # print("Shape values mask", values_mask.shape)
 
             _, a_i_qp = masked_softmax(s_i_qp, values_mask, 1)  # [batch_size, q_length]
-            print("Shape a_i_qp", a_i_qp.shape)
+            print(("Shape a_i_qp", a_i_qp.shape))
 
             a_i_qp = tf.expand_dims(a_i_qp, axis=1)  # [batch_size, 1,  q_length]
             c_i_qp = tf.reduce_sum(tf.matmul(a_i_qp, u_Q), 1)  # [batch_size, 2 * hidden_size_encoder]
 
 
-            print("Shape c_i", c_i_qp.shape)
+            print(("Shape c_i", c_i_qp.shape))
 
             # gate
 
             slice = u_P[:, i, :]
 
-            print("Shape slice", slice)
+            print(("Shape slice", slice))
             u_iP_c_i = tf.concat([slice, c_i_qp], 1)
-            print("Shape u_iP_c_i", u_iP_c_i.shape)  # [batch_size, 4*hidden_size_encoder]
+            print(("Shape u_iP_c_i", u_iP_c_i.shape))  # [batch_size, 4*hidden_size_encoder]
 
             g_i = tf.sigmoid(tf.matmul(u_iP_c_i, self.W_g_QP))
-            print("Shape g_i", g_i.shape)  # batch_size, 4*hidden_size_encoder]
+            print(("Shape g_i", g_i.shape))  # batch_size, 4*hidden_size_encoder]
 
 
             u_iP_c_i_star = tf.multiply(u_iP_c_i, g_i) # batch_size, 4*hidden_size_encoder]
 
-            print("Shape u_iP_c_i_star", u_iP_c_i_star.shape)
+            print(("Shape u_iP_c_i_star", u_iP_c_i_star.shape))
 
             self.QP_state = self.QP_cell.zero_state(batch_size=cur_batch_size, dtype=tf.float32)
 
@@ -530,7 +530,7 @@ I       Implement question passage matching from R-Net
                 v_P.append(output)
         v_P = tf.stack(v_P, 1)
         v_P = tf.nn.dropout(v_P, self.keep_prob)
-        print("Shape v_P", v_P.shape) # [batch_size, context_len, hidden_size_qp]
+        print(("Shape v_P", v_P.shape)) # [batch_size, context_len, hidden_size_qp]
 
         return v_P
 
@@ -550,7 +550,7 @@ I       Implement self matching from R-Net
         for i in range(context_len):
             W_vP_vPself = self.matrix_multiplication(v_P, self.W_vP_self)  # [batch_size, context_len, hidden_size_sm]
 
-            print("Shape W_vP_vPself", W_vP_vPself.shape)
+            print(("Shape W_vP_vPself", W_vP_vPself.shape))
 
             cur_batch_size = tf.shape(v_P)[0]
 
@@ -561,39 +561,39 @@ I       Implement self matching from R-Net
             W_vP_vPhat_self = self.matrix_multiplication(concat_v_iP,
                                                          self.W_vP_hat_self)  # [batch_size, 1, hidden_size_sm]
 
-            print("Shape W_vP_vPhat_self", W_vP_vPhat_self.shape)
+            print(("Shape W_vP_vPhat_self", W_vP_vPhat_self.shape))
 
             tanh_sm = tf.tanh(W_vP_vPself + W_vP_vPhat_self)  # [batch_size, context_len, hidden_size_sm]
 
-            print("Shape tanh", tanh_sm.shape)
+            print(("Shape tanh", tanh_sm.shape))
 
             # Calculate si = vT*tanh
             s_i_sm = self.matrix_multiplication(tanh_sm,
                                                 tf.reshape(self.v_t_self, [-1, 1]))  # [batch_size, context_len, 1]
-            print("Shape S_i", s_i_sm.shape)
+            print(("Shape S_i", s_i_sm.shape))
 
             s_i_sm = tf.squeeze(s_i_sm, axis=2)  # [batch_size, context_len]
 
             _, a_i_sm = masked_softmax(s_i_sm, context_mask, 1)  # [batch_size, context_len]
 
-            print("Shape a_i_sm", a_i_sm.shape)  # [batch_size, context_len]
+            print(("Shape a_i_sm", a_i_sm.shape))  # [batch_size, context_len]
 
             a_i_sm = tf.expand_dims(a_i_sm, axis=1)
             c_i_sm = tf.reduce_sum(tf.matmul(a_i_sm, v_P), 1)  # [batch_size, hidden_size_qp]
 
-            print("Shape c_i", c_i_sm.shape)
+            print(("Shape c_i", c_i_sm.shape))
 
             # gate
             slice_vP = v_P[:, i, :]
             v_iP_c_i = tf.concat([slice_vP, c_i_sm], 1)  # [batch_size, 2*hidden_size_qp]
-            print("Shape v_iP_c_i", v_iP_c_i.shape)
+            print(("Shape v_iP_c_i", v_iP_c_i.shape))
 
             g_i_self = tf.sigmoid(tf.matmul(v_iP_c_i, self.W_g_self))  # [batch_size, 2*hidden_size_qp]
-            print("Shape g_i_self", g_i_self.shape)
+            print(("Shape g_i_self", g_i_self.shape))
 
             v_iP_c_i_star = tf.multiply(v_iP_c_i, g_i_self)
 
-            print("Shape v_iP_c_i_star", v_iP_c_i_star.shape)  # [batch_size, 2*hidden_size_qp]
+            print(("Shape v_iP_c_i_star", v_iP_c_i_star.shape))  # [batch_size, 2*hidden_size_qp]
 
             sm.append(v_iP_c_i_star)
         sm = tf.stack(sm, 1)
@@ -610,7 +610,7 @@ I       Implement self matching from R-Net
             h_P = tf.stack(SM_outputs, 1)
         h_P = tf.nn.dropout(h_P, self.keep_prob)
 
-        print("Shape h_P", h_P.shape)  # [batch_size, context_len, 2*hidden_size_sm]
+        print(("Shape h_P", h_P.shape))  # [batch_size, context_len, 2*hidden_size_sm]
 
         return h_P
 
@@ -677,11 +677,11 @@ class Answer_Pointer(object):
         u_Q = question_encoding
 
         W_ruQ_u_Q = self.matrix_multiplication(u_Q, self.W_ruQ)  # [batch_size, q_length, hidden_size_encoder]
-        print("Shape W_ruQ_u_Q", W_ruQ_u_Q.shape)
+        print(("Shape W_ruQ_u_Q", W_ruQ_u_Q.shape))
 
         W_vQ_V_rQ = tf.matmul(self.W_VrQ, self.W_vQ) # [ q_length, hidden_size_encoder]
 
-        print("Shape W_vQ_V_rQ pre stack", W_vQ_V_rQ.shape)
+        print(("Shape W_vQ_V_rQ pre stack", W_vQ_V_rQ.shape))
 
         cur_batch_size = tf.shape(u_Q)[0]
         W_vQ_V_rQ = tf.expand_dims(W_vQ_V_rQ, axis =0)
@@ -690,7 +690,7 @@ class Answer_Pointer(object):
         # print("Shape W_vQ_V_rQ in  stack", W_vQ_V_rQ.shape)
         # W_vQ_V_rQ = tf.stack([W_vQ_V_rQ] * cur_batch_size, 0)  # So shape  [batch_size, q_length, hidden_size_encoder]
 
-        print("Shape W_vQ_V_rQ post stack", W_vQ_V_rQ.shape)
+        print(("Shape W_vQ_V_rQ post stack", W_vQ_V_rQ.shape))
 
         tanh_qpool = tf.tanh(W_ruQ_u_Q + W_vQ_V_rQ)  # [batch_size, q_length, hidden_size_encoder]
 
@@ -707,7 +707,7 @@ class Answer_Pointer(object):
         r_Q = tf.reduce_sum(tf.matmul(a_i_qpool, u_Q), 1)  # [batch_size, 2 * hidden_size_encoder]
 
         r_Q = tf.nn.dropout(r_Q, self.keep_prob)
-        print(' shape of r_Q', r_Q.shape)  # [batch_size, 2 * hidden_size_encoder]
+        print((' shape of r_Q', r_Q.shape))  # [batch_size, 2 * hidden_size_encoder]
         return r_Q
 
 
@@ -737,26 +737,26 @@ class Answer_Pointer(object):
                  h_i1a = r_Q
              else:
                  h_i1a = h_a
-             print(' Shape of h_t1a', h_i1a.shape)
+             print((' Shape of h_t1a', h_i1a.shape))
              concat_h_i1a = tf.concat([tf.reshape(h_i1a, [cur_batch_size, 1, 2*self.hidden_size_encoder])] * context_len, 1)
              W_ha_h_i1a = self.matrix_multiplication(concat_h_i1a, self.W_ha)
 
              tanh_ptr = tf.tanh(W_hP_h_P + W_ha_h_i1a)  # [batch_size, context_len, 2*hidden_size_encoder]
 
-             print("Shape tanh_ptr", tanh_ptr.shape)
+             print(("Shape tanh_ptr", tanh_ptr.shape))
 
              s_i_ptr = self.matrix_multiplication(tanh_ptr,
                                             tf.reshape(self.v_ptr, [-1, 1]))  # [batch_size, context_len, 1]
 
              s_i_ptr = tf.squeeze(s_i_ptr, axis=2)   # [batch_size, context_len]. Same shape as context Mask
 
-             print("Shape s_i_ptr", s_i_ptr.shape)
+             print(("Shape s_i_ptr", s_i_ptr.shape))
 
              logits_ptr, a_i_ptr = masked_softmax(s_i_ptr, context_mask, 1)  # [batch_size, context_len]
 
-             print("Shape a_i_ptr", a_i_ptr.shape, logits_ptr.shape)
+             print(("Shape a_i_ptr", a_i_ptr.shape, logits_ptr.shape))
 
-             print("Shape h_P", h_P.shape) # [batch_size, context_len, 2*hidden_size_encoder]
+             print(("Shape h_P", h_P.shape)) # [batch_size, context_len, 2*hidden_size_encoder]
 
 
 
@@ -771,7 +771,7 @@ class Answer_Pointer(object):
                                                                    dtype=tf.float32)  # set initial state to zero
                  h_a, _ = self.ans_ptr_cell(c_i_ptr, self.ans_ptr_state)
                  # h_a = h_a[1]
-                 print("shape of h_a: ", h_a.shape)
+                 print(("shape of h_a: ", h_a.shape))
 
         return p, logits
 
