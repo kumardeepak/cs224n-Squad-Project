@@ -27,7 +27,7 @@ import tensorflow as tf
 
 from qa_model import QAModel
 from vocab import get_glove
-from official_eval_helper import get_json_data, generate_answers, generate_answers_prob
+from official_eval_helper import get_json_data, generate_answers, generate_answers_prob, get_json_data_string
 
 
 logging.basicConfig(level=logging.INFO)
@@ -92,6 +92,10 @@ tf.app.flags.DEFINE_string("data_dir", DEFAULT_DATA_DIR, "Where to find preproce
 tf.app.flags.DEFINE_string("ckpt_load_dir", "", "For official_eval mode, which directory to load the checkpoint fron. You need to specify this for official_eval mode.")
 tf.app.flags.DEFINE_string("json_in_path", "", "For official_eval mode, path to JSON input file. You need to specify this for official_eval_mode.")
 tf.app.flags.DEFINE_string("json_out_path", "predictions.json", "Output path for official_eval mode. Defaults to predictions.json")
+
+# Evaluating model
+tf.app.flags.DEFINE_string("json_in", "", "For api mode, path to JSON input string. You need to specify this for api_mode.")
+tf.app.flags.DEFINE_string("json_out", "predictions.json", "Output path for api mode. Defaults to predictions.json")
 
 FLAGS = tf.app.flags.FLAGS
 os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.gpu)
@@ -224,6 +228,24 @@ def main(unused_argv):
                 f.write(str(json.dumps(answers_dict, ensure_ascii=False)))
                 print(("Wrote predictions to %s" % FLAGS.json_out_path))
 
+    elif FLAGS.mode == "api":
+        if FLAGS.json_in == "":
+            raise Exception("For api mode, you need to specify --json_in")
+        if FLAGS.ckpt_load_dir == "":
+            raise Exception("For api mode, you need to specify --ckpt_load_dir")
+        
+        # Read the JSON from the string
+        qn_uuid_data, context_token_data, qn_token_data = get_json_data_string(FLAGS.json_in)
+
+        with tf.Session(config=config) as sess:
+
+            # Load model from ckpt_load_dir
+            initialize_model(sess, qa_model, FLAGS.ckpt_load_dir, expect_exists=True)
+
+            # Get a predicted answer for each example in the data
+            # Return a mapping answers_dict from uuid to answer
+            answers_dict = generate_answers(sess, qa_model, word2id, qn_uuid_data, context_token_data, qn_token_data)
+            print(answers_dict)
 
     else:
         raise Exception("Unexpected value of FLAGS.mode: %s" % FLAGS.mode)

@@ -20,11 +20,13 @@ and write those answers to another JSON file."""
 
 
 import os
+import json
+
 from tqdm import tqdm
 import numpy as np
 from six.moves import xrange
 # from nltk.tokenize.moses import MosesDetokenizer
-from mosestokenizer import MosesDetokenizer
+from sacremoses import MosesDetokenizer
 
 from preprocessing.squad_preprocess import data_from_json, tokenize
 from vocab import UNK_ID, PAD_ID
@@ -194,6 +196,29 @@ def preprocess_dataset(dataset):
 
     return qn_uuid_data, context_token_data, qn_token_data
 
+def get_json_data_string(json_str):
+    """
+    Read the contexts and questions from a json string
+
+    Returns:
+      qn_uuid_data: list (length equal to dev set size) of unicode strings like '56be4db0acb8001400a502ec'
+      context_token_data, qn_token_data: lists (length equal to dev set size) of lists of strings (no UNKs, unpadded)
+    """
+
+    # Read the json file
+    print("Received data -> %s..." % json_str)
+    data = json.loads(json_str)
+
+    # Get the tokenized contexts and questions, and unique question identifiers
+    print("Preprocessing data ...")
+    qn_uuid_data, context_token_data, qn_token_data = preprocess_dataset(data)
+
+    data_size = len(qn_uuid_data)
+    assert len(context_token_data) == data_size
+    assert len(qn_token_data) == data_size
+    print("Finished preprocessing. Got %i examples" % (data_size))
+
+    return qn_uuid_data, context_token_data, qn_token_data
 
 def get_json_data(data_filename):
     """
