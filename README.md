@@ -3,7 +3,8 @@
 This repository has the code to run the model my team built for the SQUaD dataset
 
 ### Running the code
-
+* creating environment separately ```conda create -n qna3 python=3.6```. Please note ```qna3``` is my environment, you can make your own
+* install dependencies by ```pip install -r requirements.txt```
 * Please run ```./get_started.sh``` to download the SQuAD dataset and GloVE Vectors
 * requirements.txt is used by get_started.sh to install requirements. Once the script is done running, you will have a new directory data with the train and dev json files for SQuAD datset. And another empty folder experiments that will eventually have the results from your experiments. 
 
