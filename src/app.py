@@ -17,6 +17,7 @@ from official_eval_helper import get_json_data, generate_answers, generate_answe
 
 app = Flask(__name__)
 CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 parser.add_argument('--experiment_name', action="store")
 parser.add_argument('--ckpt_load_dir', action="store")
