@@ -206,7 +206,6 @@ def get_json_data_string(json_str):
     """
 
     # Read the json file
-    print("Received data -> %s..." % json_str)
     data = json.loads(json_str)
 
     # Get the tokenized contexts and questions, and unique question identifiers

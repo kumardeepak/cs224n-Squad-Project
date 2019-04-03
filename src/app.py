@@ -1,22 +1,8 @@
-# Copyright 2018 Stanford University
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+import argparse
+parser = argparse.ArgumentParser()
 
-"""This file contains the entrypoint to the rest of the code"""
-
-
-
-
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import os
 import io
 import json
@@ -29,6 +15,13 @@ from qa_model import QAModel
 from vocab import get_glove
 from official_eval_helper import get_json_data, generate_answers, generate_answers_prob, get_json_data_string
 
+app = Flask(__name__)
+CORS(app)
+
+parser.add_argument('--experiment_name', action="store")
+parser.add_argument('--ckpt_load_dir', action="store")
+
+cmdlineArguments = parser.parse_args()
 
 logging.basicConfig(level=logging.INFO)
 
@@ -101,6 +94,7 @@ FLAGS = tf.app.flags.FLAGS
 os.environ["CUDA_VISIBLE_DEVICES"] = str(FLAGS.gpu)
 
 
+
 def initialize_model(session, model, train_dir, expect_exists):
     """
     Initializes model from train_dir.
@@ -117,6 +111,7 @@ def initialize_model(session, model, train_dir, expect_exists):
     v2_path = ckpt.model_checkpoint_path + ".index" if ckpt else ""
     if ckpt and (tf.gfile.Exists(ckpt.model_checkpoint_path) or tf.gfile.Exists(v2_path)):
         print(("Reading model parameters from %s" % ckpt.model_checkpoint_path))
+        FLAGS.json_out = ckpt.model_checkpoint_path
         model.saver.restore(session, ckpt.model_checkpoint_path)
     else:
         if expect_exists:
@@ -126,18 +121,9 @@ def initialize_model(session, model, train_dir, expect_exists):
             session.run(tf.global_variables_initializer())
             print(('Num params: %d' % sum(v.get_shape().num_elements() for v in tf.trainable_variables())))
 
-
-def main(unused_argv):
-    # Print an error message if you've entered flags incorrectly
-    if len(unused_argv) != 1:
-        raise Exception("There is a problem with how you entered flags: %s" % unused_argv)
-
-    # Check for Python 2
-    # if sys.version_info[0] != 2:
-    #     raise Exception("ERROR: You must use Python 2 but you are running Python %i" % sys.version_info[0])
-
-    # Print out Tensorflow version
-    print(("This code was developed and tested on TensorFlow 1.4.1. Your TensorFlow version: %s" % tf.__version__))
+def main():
+    FLAGS.experiment_name   = cmdlineArguments.experiment_name
+    FLAGS.ckpt_load_dir     = cmdlineArguments.ckpt_load_dir
 
     # Define train_dir
     if not FLAGS.experiment_name and not FLAGS.train_dir and FLAGS.mode != "official_eval":
@@ -147,108 +133,59 @@ def main(unused_argv):
     # Initialize bestmodel directory
     bestmodel_dir = os.path.join(FLAGS.train_dir, "best_checkpoint")
 
-    # Define path for glove vecs
-    FLAGS.glove_path = FLAGS.glove_path or os.path.join(DEFAULT_DATA_DIR, "glove.6B.{}d.txt".format(FLAGS.embedding_size))
 
-    # Load embedding matrix and vocab mappings
-    emb_matrix, word2id, id2word = get_glove(FLAGS.glove_path, FLAGS.embedding_size)
-
-    # Get filepaths to train/dev datafiles for tokenized queries, contexts and answers
-    train_context_path = os.path.join(FLAGS.data_dir, "train.context")
-    train_qn_path = os.path.join(FLAGS.data_dir, "train.question")
-    train_ans_path = os.path.join(FLAGS.data_dir, "train.span")
-    dev_context_path = os.path.join(FLAGS.data_dir, "dev.context")
-    dev_qn_path = os.path.join(FLAGS.data_dir, "dev.question")
-    dev_ans_path = os.path.join(FLAGS.data_dir, "dev.span")
+def predict(str_data):
+    # Some GPU settings
+    # config=tf.ConfigProto()
+    # config.gpu_options.allow_growth = True
 
     # Initialize model
     qa_model = QAModel(FLAGS, id2word, word2id, emb_matrix)
 
-    # Some GPU settings
-    config=tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    # Read the JSON from the string
+    qn_uuid_data, context_token_data, qn_token_data = get_json_data_string(str_data)
 
-    # Split by mode
-    if FLAGS.mode == "train":
+    with tf.Session(config=tf.ConfigProto()) as sess:
+        # Load model from ckpt_load_dir
+        initialize_model(sess, qa_model, FLAGS.ckpt_load_dir, expect_exists=True)
 
-        # Setup train dir and logfile
-        if not os.path.exists(FLAGS.train_dir):
-            os.makedirs(FLAGS.train_dir)
-        file_handler = logging.FileHandler(os.path.join(FLAGS.train_dir, "log.txt"))
-        logging.getLogger().addHandler(file_handler)
+        # Get a predicted answer for each example in the data
+        # Return a mapping answers_dict from uuid to answer
+        answers_dict = generate_answers(sess, qa_model, word2id, qn_uuid_data, context_token_data, qn_token_data)
+        answers_dict['model'] = FLAGS.json_out
+        return answers_dict
 
-        # Save a record of flags as a .json file in train_dir
-        # with open(os.path.join(FLAGS.train_dir, "flags.json"), 'w') as fout:
-        #     json.dump(FLAGS.__flags, fout)
+# default route
+@app.route('/')
+def index():
+    return "Index API"
 
-        # Make bestmodel dir if necessary
-        if not os.path.exists(bestmodel_dir):
-            os.makedirs(bestmodel_dir)
+# HTTP Errors handlers
+@app.errorhandler(404)
+def url_error(e):
+    return """
+    Wrong URL!
+    <pre>{}</pre>""".format(e), 404
 
-        with tf.Session(config=config) as sess:
+@app.errorhandler(500)
+def server_error(e):
+    return """
+    An internal error occurred: <pre>{}</pre>
+    See logs for full stacktrace.
+    """.format(e), 500
 
-            # Load most recent model
-            initialize_model(sess, qa_model, FLAGS.train_dir, expect_exists=False)
+# API route
+@app.route('/api', methods=['POST'])
+def api():
+    results     = predict(request.data)
+    response = jsonify(results)
+    return response
 
-            # Train
-            qa_model.train(sess, train_context_path, train_qn_path, train_ans_path, dev_qn_path, dev_context_path, dev_ans_path)
+if __name__ == '__main__':
+    main()
+    # Define path for glove vecs
+    FLAGS.glove_path = FLAGS.glove_path or os.path.join(DEFAULT_DATA_DIR, "glove.6B.{}d.txt".format(FLAGS.embedding_size))
+    # Load embedding matrix and vocab mappings
+    emb_matrix, word2id, id2word = get_glove(FLAGS.glove_path, FLAGS.embedding_size)
 
-
-    elif FLAGS.mode == "show_examples":
-        with tf.Session(config=config) as sess:
-
-            # Load best model
-            initialize_model(sess, qa_model, bestmodel_dir, expect_exists=True)
-
-            # Show examples with F1/EM scores
-            _, _ = qa_model.check_f1_em(sess, dev_context_path, dev_qn_path, dev_ans_path, "dev", num_samples=10, print_to_screen=True)
-
-
-    elif FLAGS.mode == "official_eval":
-        if FLAGS.json_in_path == "":
-            raise Exception("For official_eval mode, you need to specify --json_in_path")
-        if FLAGS.ckpt_load_dir == "":
-            raise Exception("For official_eval mode, you need to specify --ckpt_load_dir")
-
-        # Read the JSON data from file
-        qn_uuid_data, context_token_data, qn_token_data = get_json_data(FLAGS.json_in_path)
-
-        with tf.Session(config=config) as sess:
-
-            # Load model from ckpt_load_dir
-            initialize_model(sess, qa_model, FLAGS.ckpt_load_dir, expect_exists=True)
-
-            # Get a predicted answer for each example in the data
-            # Return a mapping answers_dict from uuid to answer
-            answers_dict = generate_answers(sess, qa_model, word2id, qn_uuid_data, context_token_data, qn_token_data)
-
-            # Write the uuid->answer mapping a to json file in root dir
-            print(("Writing predictions to %s..." % FLAGS.json_out_path))
-            with io.open(FLAGS.json_out_path, 'w', encoding='utf-8') as f:
-                f.write(str(json.dumps(answers_dict, ensure_ascii=False)))
-                print(("Wrote predictions to %s" % FLAGS.json_out_path))
-
-    elif FLAGS.mode == "api":
-        if FLAGS.json_in == "":
-            raise Exception("For api mode, you need to specify --json_in")
-        if FLAGS.ckpt_load_dir == "":
-            raise Exception("For api mode, you need to specify --ckpt_load_dir")
-        
-        # Read the JSON from the string
-        qn_uuid_data, context_token_data, qn_token_data = get_json_data_string(FLAGS.json_in)
-
-        with tf.Session(config=config) as sess:
-
-            # Load model from ckpt_load_dir
-            initialize_model(sess, qa_model, FLAGS.ckpt_load_dir, expect_exists=True)
-
-            # Get a predicted answer for each example in the data
-            # Return a mapping answers_dict from uuid to answer
-            answers_dict = generate_answers(sess, qa_model, word2id, qn_uuid_data, context_token_data, qn_token_data)
-            print(answers_dict)
-
-    else:
-        raise Exception("Unexpected value of FLAGS.mode: %s" % FLAGS.mode)
-
-if __name__ == "__main__":
-    tf.app.run()
+    app.run(host='0.0.0.0', debug=True)
