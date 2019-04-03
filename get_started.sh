@@ -2,7 +2,7 @@
 
 # Get directory containing this script
 HEAD_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CODE_DIR=$HEAD_DIR/code
+CODE_DIR=$HEAD_DIR/src
 DATA_DIR=$HEAD_DIR/data
 EXP_DIR=$HEAD_DIR/experiments
 
