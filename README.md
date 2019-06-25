@@ -8,9 +8,14 @@ This repository has the code to run the model my team built for the SQUaD datase
 * Please run ```./get_started.sh``` to download the SQuAD dataset and GloVE Vectors
 * requirements.txt is used by get_started.sh to install requirements. Once the script is done running, you will have a new directory data with the train and dev json files for SQuAD datset. And another empty folder experiments that will eventually have the results from your experiments. 
 
-* To run code please run main.py in code. The settings to run BIDAF model are:
+* To run code for training, please run main.py in code. The settings to run BIDAF model are:
 ```
 python src/main.py --experiment_name=bidaf_best --dropout=0.15 --batch_size=60 --hidden_size_encoder=150 --embedding_size=100 --do_char_embed=False --add_highway_layer=True --rnet_attention=False --bidaf_attention=True --answer_pointer_RNET=False --smart_span=True --hidden_size_modeling=150 --mode=train
+```
+
+* To run code for prediction, please run main.py in code. The settings to run BIDAF model are:
+```
+python src/main.py --experiment_name=bidaf_best --dropout=0.15 --batch_size=60 --hidden_size_encoder=150 --embedding_size=100 --do_char_embed=False --add_highway_layer=True --rnet_attention=False --bidaf_attention=True --answer_pointer_RNET=False --smart_span=True --hidden_size_modeling=150 --mode=api
 ```
 
 * The settings to run the RNET model are:
