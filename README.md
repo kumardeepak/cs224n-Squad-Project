@@ -10,13 +10,13 @@ This repository has the code to run the model my team built for the SQUaD datase
 
 * To run code please run main.py in code. The settings to run BIDAF model are:
 ```
-python code/main.py --experiment_name=bidaf_best --dropout=0.15 --batch_size=60 --hidden_size_encoder=150 --embedding_size=100 --do_char_embed=False --add_highway_layer=True --rnet_attention=False --bidaf_attention=True --answer_pointer_RNET=False --smart_span=True --hidden_size_modeling=150 --mode=train
+python src/main.py --experiment_name=bidaf_best --dropout=0.15 --batch_size=60 --hidden_size_encoder=150 --embedding_size=100 --do_char_embed=False --add_highway_layer=True --rnet_attention=False --bidaf_attention=True --answer_pointer_RNET=False --smart_span=True --hidden_size_modeling=150 --mode=train
 ```
 
 * The settings to run the RNET model are:
 
 ```
-python code/main.py --experiment_name=rnet_best --dropout=0.20 --batch_size=20 --hidden_size_encoder=200 --embedding_size=300 --do_char_embed=False --add_highway_layer=False --rnet_attention=True --bidaf_attention=False --answer_pointer_RNET=True --smart_span=True--mode=official_eval \
+python src/main.py --experiment_name=rnet_best --dropout=0.20 --batch_size=20 --hidden_size_encoder=200 --embedding_size=300 --do_char_embed=False --add_highway_layer=False --rnet_attention=True --bidaf_attention=False --answer_pointer_RNET=True --smart_span=True--mode=official_eval \
 --json_in_path=data/tiny-dev.json \
 --json_out_path=predictions_rnet.json \
 --ckpt_load_dir=experiments/rnet_best/best_checkpoint
